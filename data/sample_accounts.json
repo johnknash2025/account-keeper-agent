@@ -1,0 +1,14 @@
+[
+  {"service": "MegaMart", "category": "shopping", "email": "taro.main@example.com", "phone": "090-0000-0001", "address_label": "自宅", "two_factor": "sms", "payment_ref": "メインカード", "last_used": "2026-10-10"},
+  {"service": "FurimaPlus", "category": "shopping", "email": "taro.old@example.net", "phone": "090-0000-0001", "address_label": "旧住所", "two_factor": "none", "payment_ref": "メインカード", "last_used": "2024-03-02"},
+  {"service": "MyBank Online", "category": "finance", "login_id": "taro-k", "email": "taro.main@example.com", "phone": "090-0000-0001", "address_label": "自宅", "two_factor": "sms", "last_used": "2026-10-01"},
+  {"service": "NetSecurities", "category": "finance", "email": "taro.main@example.com", "address_label": "自宅", "two_factor": "totp", "last_used": "2026-09-20"},
+  {"service": "MyNumber Portal", "category": "gov", "email": "taro.main@example.com", "address_label": "自宅", "two_factor": "passkey", "last_used": "2026-03-15"},
+  {"service": "CodeHub", "category": "work", "login_id": "taro-dev", "email": "taro.dev@example.com", "two_factor": "passkey", "last_used": "2026-10-16"},
+  {"service": "CloudConsole", "category": "work", "email": "taro.dev@example.com", "two_factor": "email", "payment_ref": "事業用カード", "last_used": "2026-10-15"},
+  {"service": "PhotoShare", "category": "sns", "email": "taro.old@example.net", "phone": "090-0000-0001", "two_factor": "none", "last_used": "2023-11-30"},
+  {"service": "MicroBlog", "category": "sns", "email": "taro.main@example.com", "two_factor": "totp", "last_used": "2026-10-17"},
+  {"service": "VideoSub", "category": "other", "email": "taro.old@example.net", "two_factor": "none", "payment_ref": "メインカード", "last_used": "2025-01-05", "notes": "月額課金のまま放置？"},
+  {"service": "FarmSupply EC", "category": "shopping", "email": "taro.main@example.com", "address_label": "畑の倉庫", "two_factor": "email", "payment_ref": "事業用カード", "last_used": "2026-08-28"},
+  {"service": "TravelBooking", "category": "other", "email": "taro.main@example.com", "phone": "090-0000-0001", "address_label": "旧住所", "two_factor": "sms", "last_used": "2025-06-12"}
+]

@@ -1,0 +1,8 @@
+# Hermes Agent の ~/.hermes/config.yaml に追記する例
+# （キー名はお使いの Hermes のバージョンに合わせて調整してください）
+mcp_servers:
+  account-keeper:
+    command: python
+    args: ["-m", "account_keeper.mcp_server"]
+    env:
+      ACCOUNT_KEEPER_DB: ~/.account-keeper/accounts.db

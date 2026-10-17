@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "account-keeper": {
+      "command": "python",
+      "args": ["-m", "account_keeper.mcp_server"],
+      "env": { "ACCOUNT_KEEPER_DB": "~/.account-keeper/accounts.db" }
+    }
+  }
+}
