@@ -4,6 +4,7 @@
 """
 from __future__ import annotations
 
+import calendar
 from datetime import date, datetime
 
 from .store import Account
@@ -16,6 +17,28 @@ def _parse(d: str) -> date | None:
         return datetime.strptime(d, "%Y-%m-%d").date()
     except (ValueError, TypeError):
         return None
+
+
+def _months_ago(today: date, months: int) -> date:
+    """calendar month 単位で months ヶ月前の日付を返す（月末ズレを避ける）。
+
+    months*30 的な日数近似だと、12 ヶ月 = 360日 になって、
+    実暦で 1 年未満（例: 11 ヶ月 + 27 日 = 361日）が候補に入ったり、
+    1 年ちょうど（365日）の扱いが揺れる。暦月で境界を決めることで、
+    「実際に使っているサービス」を休眠候補に誤混入させない。
+
+    months <= 0 は境界が今日になり、last_used が読める全サービスが休眠候補になってしまう。
+    手順書は使用中のサービスまで退会対象にする。黙って候補を全量に広げず拒否する。
+    """
+    if months < 1:
+        raise ValueError("months は 1 以上（0 やマイナスだと使用中のサービスまで退会候補になります）")
+    year = today.year
+    month = today.month - months
+    while month <= 0:
+        month += 12
+        year -= 1
+    day = min(today.day, calendar.monthrange(year, month)[1])
+    return date(year, month, day)
 
 
 def weak_2fa(accounts: list[Account]) -> list[dict]:
@@ -33,15 +56,16 @@ def weak_2fa(accounts: list[Account]) -> list[dict]:
 
 
 def dormant(accounts: list[Account], months: int = 12, today: date | None = None) -> list[dict]:
-    """長期間使っていないアカウント（退会候補）。"""
+    """長期間使っていないアカウント（退会候補）。境界は暦月で判定し、利用日不明はここでは扱わない。"""
     today = today or date.today()
+    cutoff = _months_ago(today, months)
     out = []
     for a in accounts:
         d = _parse(a.last_used)
         if d is None:
-            continue
-        days = (today - d).days
-        if days >= months * 30:
+            continue  # 最終利用日が不明なものは audit.dormant では休眠扱いしない
+        if d <= cutoff:
+            days = (today - d).days
             out.append({"service": a.service, "last_used": a.last_used, "days_unused": days,
                         "has_payment": bool(a.payment_ref),
                         "suggestion": "退会 or 登録カード解除" if a.payment_ref else "退会を検討"})
@@ -62,12 +86,20 @@ def change_impact(accounts: list[Account], field: str, old_value: str) -> list[d
 
 
 def email_exposure(accounts: list[Account]) -> list[dict]:
-    """同じメールアドレスに何サービスぶら下がっているか（漏えい時の影響範囲）。"""
+    """同じメールアドレスに何サービスぶら下がっているか（漏えい時の影響範囲）。
+
+    メールの大文字小文字は同一アドレス扱いで寄せる（Bitwarden の News@Example.com と
+    Outlook の news@example.com が別グループになると、共有件数の警告が過小になる）。
+    表示は最初に現れた表記を使う。
+    """
     groups: dict[str, list[str]] = {}
+    display: dict[str, str] = {}
     for a in accounts:
         if a.email:
-            groups.setdefault(a.email, []).append(a.service)
-    return sorted(({"email": e, "count": len(s), "services": s} for e, s in groups.items()),
+            key = a.email.casefold()
+            display.setdefault(key, a.email)
+            groups.setdefault(key, []).append(a.service)
+    return sorted(({"email": display[k], "count": len(s), "services": s} for k, s in groups.items()),
                   key=lambda x: -x["count"])
 
 

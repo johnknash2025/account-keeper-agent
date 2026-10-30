@@ -4,7 +4,7 @@ from __future__ import annotations
 from dataclasses import asdict
 from typing import Any, Callable
 
-from . import audit
+from . import audit, retire
 from .store import Account, Store
 
 Tool = dict[str, Any]
@@ -38,6 +38,24 @@ def build_tools(store: Store) -> dict[str, tuple[Tool, Callable[..., Any]]]:
     def email_exposure() -> list[dict]:
         return audit.email_exposure(store.all())
 
+    def retire_plan(months: int = 12, emails: list[str] | None = None) -> list[dict]:
+        return retire.candidates(store.all(), months=months, primary_emails=emails or [])
+
+    def retire_procedure(service: str) -> dict:
+        acc = store.get(service)
+        if acc is None:
+            raise ValueError(f"{service} の登録が見かりません")
+        shared = next((r["services"] for r in audit.email_exposure(store.all())
+                       if r["email"].casefold() == (acc.email or "").casefold()), [])
+        return {"service": service, "owner_runs": True, "agent_logs_in": False,
+                "steps": retire.procedure(acc, shared)}
+
+    def import_bitwarden(file: str) -> dict:
+        stats: dict = {}
+        imported = retire.import_bitwarden_csv(store, file, stats=stats)
+        store.secure()  # MCP / エージェント経路でも登録情報 DB を所有者のみ読み書きにする（CLI と同じ）
+        return {"imported": imported, **stats}
+
     def s(props: dict, required: list[str] | None = None) -> dict:
         return {"type": "object", "properties": props, "required": required or []}
 
@@ -55,11 +73,18 @@ def build_tools(store: Store) -> dict[str, tuple[Tool, Callable[..., Any]]]:
         "audit_2fa": ({"description": "2FA が弱い（なし/SMS/メール）アカウントを重要度順に返す",
                        "inputSchema": s({})}, audit_2fa),
         "find_dormant": ({"description": "長期間未使用のアカウント（退会候補）",
-                          "inputSchema": s({"months": {"type": "integer"}})}, find_dormant),
+                          "inputSchema": s({"months": {"type": "integer", "minimum": 1}})}, find_dormant),
         "plan_change": ({"description": "メール/電話/住所ラベル/カード愛称を変更するとき、更新が必要なサービスを重要度順に返す",
                          "inputSchema": s({"field": {"type": "string",
                                                      "enum": ["email", "phone", "address_label", "payment_ref"]},
                                            "old_value": str_}, ["field", "old_value"])}, plan_change),
         "email_exposure": ({"description": "メールアドレスごとの紐づきサービス数（漏えい時の影響範囲）",
                             "inputSchema": s({})}, email_exposure),
+        "retire_plan": ({"description": "休眠（または利用日不明）のアカウントをお金優先（家計簿・決済・ゲーム）で並べた退会候補。emails は Outlook 等で維持する登録メール",
+                         "inputSchema": s({"months": {"type": "integer", "minimum": 1},
+                                           "emails": {"type": "array", "items": str_}})}, retire_plan),
+        "retire_procedure": ({"description": "1 サービス分の退会・連携解除手順（銀行側→サービス内→退会→個人データ削除確認）。ログインは持ち主",
+                              "inputSchema": s({"service": str_}, ["service"])}, retire_procedure),
+        "import_bitwarden": ({"description": "Bitwarden 書き出し CSV から項目名と URL だけ取り込み（パスワード列は読まない）",
+                              "inputSchema": s({"file": str_}, ["file"])}, import_bitwarden),
     }

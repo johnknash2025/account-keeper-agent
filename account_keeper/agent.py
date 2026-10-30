@@ -68,6 +68,19 @@ def offline_answer(store, question: str) -> str:
     if "2fa" in q or "二段階" in q or "認証" in q:
         rows = tools["audit_2fa"][1]()
         return "\n".join(f"[{r['severity']}] {r['service']}: {r['two_factor']} → {r['suggestion']}" for r in rows) or "問題なし"
+    if "手順" in q or "解除" in q:
+        rows = tools["retire_plan"][1]()
+        dormant = [r for r in rows if r.get("status", "dormant") == "dormant"]
+        unknown = [r for r in rows if r.get("status") == "unknown_last_used"]
+        if not dormant and not unknown:
+            return "退会候補なし"
+        out: list[str] = []
+        if dormant:
+            out.append("実行は持ち主（エージェントはログインしない）。上から着手:")
+            out += [f"{r['rank']}. {r['service']} → 銀行側の連携解除 → サービス内の解除 → 退会 → 個人データ削除の確認" for r in dormant]
+        if unknown:
+            out.append("要確認（利用日不明・実際に使っていれば退会しない）: " + " / ".join(r["service"] for r in unknown))
+        return "\n".join(out)
     if "退会" in q or "使って" in q or "放置" in q:
         rows = tools["find_dormant"][1]()
         return "\n".join(f"{r['service']}: {r['days_unused']}日未使用 → {r['suggestion']}" for r in rows) or "該当なし"
