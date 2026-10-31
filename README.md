@@ -133,4 +133,4 @@ flowchart LR
 
 ## License
 
-MIT
+GNU Affero General Public License v3.0 or later (AGPL-3.0-or-later). 2026-10-31 以前に MIT で公開した版は MIT のままです。
