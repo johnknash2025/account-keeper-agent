@@ -1,0 +1,9 @@
+name,uri,username,password,folder,notes
+PhotoShare,photoshare.example.net,taro.old@example.net,,SNS,放置中の写真アプリ
+FurimaPlus,furima-plus.example.net,taro.old@example.net,,Shopping,カード登録が残っているかも
+VideoSub,videosub.example.net,taro.old@example.net,,Entertainment,月額課金のまま？
+TravelBooking,travel-booking.example.net,taro.main@example.com,,Travel,SMS 2FA
+GameGarden,gamegarden.example.net,taro.old@example.net,,Games,ガチャ課金の記憶
+BudgetNest,budgetnest.example.net,taro.main@example.com,,Finance,家計簿の旧サービス
+NoteNest,notenest.example.net,taro.old@example.net,,Notes,あまり使っていない
+OldForum,oldforum.example.net,taro.old@example.net,,Forums,何に登録したか怪しい
