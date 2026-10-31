@@ -973,3 +973,14 @@ def test_retire_cli_refuses_out_under_symlinked_parent_dir(tmp_path):
     assert "Traceback" not in r.stderr and "手順書を書き出せません" in r.stderr  # 理由がわかる CLI エラー
     assert "シンボリックリンク" in r.stderr
     assert not (real / "manual.md").exists()               # リンク先ディレクトリに書き出さない
+
+
+# --- finding: サンプル CSV の行が見出しより 1 列多く、folder が notes にずれていた ---
+def test_sample_bitwarden_rows_match_header():
+    import csv
+    with BW.open(encoding="utf-8", newline="") as f:
+        rows = list(csv.reader(f))
+    assert all(len(r) == len(rows[0]) for r in rows[1:])
+    by_name = {r[0]: dict(zip(rows[0], r)) for r in rows[1:]}
+    assert by_name["GameGarden"]["folder"] == "Games"
+    assert by_name["BudgetNest"]["folder"] == "Finance"
