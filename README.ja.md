@@ -1,0 +1,138 @@
+# Account Keeper Agent 🗝️
+
+[English](README.md) | 日本語
+
+> **Status: Mock / Planned** — 構想を動く形で示すためのモックです。
+
+「どのWebサービスに、どのメール・電話・住所・2FAで登録したか」をローカルで管理し、
+**引っ越し・メアド変更・電話番号変更・放置アカウント整理** を手伝うエージェント。
+
+- 🏠 **ローカルファースト** — データは手元の SQLite のみ。推論もローカル LLM（Ollama）
+- 🔌 **MCP サーバー** — Hermes Agent / Claude Code など任意の MCP クライアントから呼べる
+- 🙅 **パスワードは持たない** — パスワードはパスワードマネージャー、カードは [Card Guard Agent](#関連プロダクト) の担当。
+  `password` / `card_number` などの項目は保存時に拒否します
+
+## できること（モック版）
+
+| ツール | 内容 |
+|---|---|
+| `audit_2fa` | 2FA なし／SMS／メールのみのアカウントを、金融・行政・仕事系を優先して列挙 |
+| `find_dormant` | 暦月（既定12ヶ月）で休眠を判定した退会候補（日数近似 months*30 は使わない。months は 1 以上必須で、0 以下は拒否。カード登録が残っていれば強調） |
+| `retire_plan` | 暦月で休眠を判定しお金優先（家計簿・決済・ゲーム）で並べた退会候補。最終利用日不明（Bitwarden 取り込み直後など）は退会候補に混ぜず「要確認」へ分離。お金ヒントは語頭一致で判定し display / repair を決済にしない |
+| `retire_procedure` | 1 サービス分の退会・連携解除手順（銀行側 → サービス内 → 退会 → データ削除確認）。4段は一般形で、実際の退会仕様は各サービスの公式ヘルプ確認を必須として組み込み |
+| `plan_change` | メール・電話・住所ラベル・カード愛称を変えるとき、更新が必要なサービスを重要度順に。SMS 2FA の罠も警告 |
+| `email_exposure` | メールアドレスごとの紐づきサービス数（漏えい時の影響範囲）。大文字小文字の違いは同一アドレスとして寄せる |
+| `list_accounts` / `search_accounts` / `upsert_account` | 登録情報の参照・更新 |
+
+> 🔒 **退会・連携解除は持ち主が実行** — エージェントはログインしません。`retire` は「何から順番に外すか」の手順書を作るだけ。Bitwarden からは項目名と URL だけを使い、パスワード列は読みません。
+
+## クイックスタート
+
+依存パッケージなし（Python 3.10+ 標準ライブラリのみ）。
+
+```bash
+git clone https://github.com/johnknash2025/account-keeper-agent
+cd account-keeper-agent
+python -m account_keeper demo        # 架空のサンプル12件を読み込む
+python -m account_keeper audit       # まとめて点検
+python -m account_keeper change phone 090-0000-0001   # 電話番号変更の影響範囲
+python -m account_keeper retire --email taro.main@example.com   # 退会・連携解除の手順書（持ち主が実行）
+```
+
+```text
+■ 2FA が弱い
+  [high  ] CloudConsole           email  → パスキーかTOTPに切り替え
+  [high  ] MyBank Online          sms    → パスキーかTOTPに切り替え
+  [medium] FurimaPlus             none   → 2FAを有効化
+■ 休眠アカウント（12ヶ月以上）
+  PhotoShare             1052日 → 退会を検討
+  FurimaPlus             959日 → 退会 or 登録カード解除
+```
+
+持ち主が Bitwarden から「項目名と URL だけ」書き出した CSV を取り込む（パスワード列は読まない）:
+
+```bash
+python -m account_keeper import-bitwarden data/sample_bitwarden.csv   # 読み取り行数と Store 件数を分けて報告
+python -m account_keeper retire --out retire-plan.md                  # --months は 1 以上（0 以下は拒否）
+```
+
+```text
+## 洗い出し（上から着手）
+1. FurimaPlus   (shopping / 970日未使用) — お金とつながり: カード登録
+2. VideoSub     (other    / 661日未使用) — お金とつながり: カード登録
+3. PhotoShare   (sns      / 1063日未使用) — お金とのつながり: なし
+■ FurimaPlus: STEP1 銀行・カード側の連携解除 → STEP2 サービス内の解除 → STEP3 退会 → STEP4 個人データ削除の確認
+```
+
+## ローカル LLM エージェント（Ollama）
+
+```bash
+ollama pull qwen3:8b
+export ACCOUNT_KEEPER_MODEL=qwen3:8b      # 任意のツール呼び出し対応モデル
+python -m account_keeper ask -v "電話番号を変えるんだけど、何から手をつければいい？"
+
+# LLM なしで動作確認するとき
+python -m account_keeper ask --offline "放置してるアカウントある？"
+```
+
+OpenAI 互換 API なら何でも可（`ACCOUNT_KEEPER_LLM_URL`、既定 `http://localhost:11434/v1`）。
+登録情報をクラウドに出さないため、既定ではローカル推論を想定しています。
+
+## Hermes Agent / Claude Code から使う（MCP）
+
+```bash
+python -m account_keeper.mcp_server   # stdio で起動（依存ゼロの最小実装）
+```
+
+- Hermes Agent: [`examples/hermes-config.yaml`](examples/hermes-config.yaml)
+- Claude Code: [`examples/claude-code.mcp.json`](examples/claude-code.mcp.json)
+
+親エージェント（Hermes 等）から「引っ越しタスク」のサブタスクとして `plan_change(field="address_label", old_value="旧住所")` を呼ぶ、といった使い方を想定。
+
+## アーキテクチャ
+
+```mermaid
+flowchart LR
+  U[ユーザー] --> CLI[ak CLI]
+  U --> H[Hermes Agent / Claude Code]
+  H -- MCP stdio --> M[account_keeper.mcp_server]
+  CLI --> A[LocalAgent]
+  A -- OpenAI互換 API --> L[(Ollama / ローカルLLM)]
+  A --> T[tools.py]
+  M --> T
+  T --> AU[audit.py<br/>決定的な点検ロジック]
+  T --> S[(SQLite<br/>~/.account-keeper)]
+  CG[Card Guard Agent] -. カード愛称のみ参照 .- S
+```
+
+点検ロジックは LLM に依存しない決定的なコード（`audit.py`）に寄せ、LLM は「どのツールを呼ぶか」と「結果の説明・優先順位付け」だけを担当します。
+
+## データモデル
+
+| 項目 | 例 | 備考 |
+|---|---|---|
+| `service` | MegaMart | 主キー |
+| `category` | shopping / sns / finance / gov / work / other | 重要度判定に使用 |
+| `email`, `phone`, `login_id` | | |
+| `address_label` | 自宅 / 旧住所 / 畑の倉庫 | **住所そのものではなくラベル** |
+| `two_factor` | none / sms / email / totp / passkey | |
+| `payment_ref` | メインカード | Card Guard 側のカード**愛称**のみ |
+| `url` | furima.example.jp | Bitwarden 取り込みで付与（お金とのつながり判定にも使用） |
+| `last_used` | 2026-10-10 | |
+
+## ロードマップ
+
+- [ ] DB の暗号化（SQLCipher or age）
+- [ ] メール受信箱から「登録完了」メールを拾って自動登録（ローカル処理）
+- [ ] 漏えい情報との突き合わせ（[leakwatch-jp](https://github.com/johnknash2025/leakwatch-jp) 連携）
+- [x] 休眠アカウントの洗い出し（お金優先）と退会・連携解除の手順書（`retire` / Bitwarden の URL だけ利用）
+- [ ] 退会手続きページ URL の自動案内・ブラウザ操作エージェント連携
+- [ ] Card Guard Agent との連携（カード再発行時の更新対象洗い出し）
+
+## 関連プロダクト
+
+- **Card Guard Agent**（Planned）— カード管理エージェント。金融情報は意図的にこちらと分離しています。
+
+## License
+
+GNU Affero General Public License v3.0 or later (AGPL-3.0-or-later). 2026-10-31 以前に MIT で公開した版は MIT のままです。

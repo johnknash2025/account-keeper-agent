@@ -223,6 +223,7 @@ class Store:
             self.db.commit()
         elif not _schema_is_current(self.db):
             _migrate(self.db)
+        self.secure()  # 作成・既存どちらでも DB ファイルを 0600 に保つ（CLI 以外経路でも同じ）
 
     def upsert(self, acc: Account) -> Account:
         existing = self.get(acc.service)

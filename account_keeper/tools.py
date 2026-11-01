@@ -5,7 +5,7 @@ from dataclasses import asdict
 from typing import Any, Callable
 
 from . import audit, retire
-from .store import Account, Store
+from .store import FORBIDDEN_KEYS, Account, Store
 
 Tool = dict[str, Any]
 
@@ -21,6 +21,12 @@ def build_tools(store: Store) -> dict[str, tuple[Tool, Callable[..., Any]]]:
         return [asdict(a) for a in store.search(query)]
 
     def upsert_account(**fields) -> dict:
+        forbidden = sorted(k for k in fields if k.lower() in FORBIDDEN_KEYS)
+        if forbidden:
+            raise ValueError(
+                f"cannot save these fields: {forbidden}; "
+                "passwords / card numbers / secret answers are not handled by this agent "
+                "（パスワード・カード番号・秘密の質問は保存できません）")
         existing = store.get(fields.get("service", ""))
         base = asdict(existing) if existing else {}
         base.update({k: v for k, v in fields.items() if v not in (None, "")})
